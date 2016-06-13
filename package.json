@@ -1,6 +1,6 @@
 {
   "name": "iptoasn",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "IP to ASN using BGP table listings from http://thyme.apnic.net/current/",
   "main": "index.js",
   "scripts": {
