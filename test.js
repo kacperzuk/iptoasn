@@ -1,17 +1,19 @@
-var iptoasn = require('./index.js')("cache/");
+// you must pass a directory in which database will be saved
+// if it doesn't exist, it will be created
+const iptoasn = require("./index")("cache/");
 
+// check when the database was updated
+// t are days
+// t is Infinity if there's no database at all
 iptoasn.lastUpdated(function(err, t) {
-  if (err) {
-    console.error(err);
+  // update the database if it's older than 1 day
+  // you must call .load() even if you don't update the database
+  if (t > 1) {
+    iptoasn.load({ update: true });
   } else {
-    if (t > 1) {
-      //updated more than 1 day ago, lets update from the net
-      iptoasn.load({ update: true });
-    } else {
-      iptoasn.load();
-    }
+    iptoasn.load();
   }
-});
+})
 
 var arr = ['50.21.180.100',
   '50.22.180.100',
@@ -20,10 +22,11 @@ var arr = ['50.21.180.100',
   '8.8.8.8',
   '127.0.0.1',
   'asd'
-]
+];
 
-iptoasn.on('ready', function() {
+// ready event is emitted when the database has been loaded
+iptoasn.on("ready", function() {
   arr.forEach(function(ip) {
-    console.log(iptoasn.lookup(ip));
+    console.log(ip, '-', iptoasn.lookup(ip));
   })
 });

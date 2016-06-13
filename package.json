@@ -1,7 +1,7 @@
 {
   "name": "iptoasn",
   "version": "0.0.1",
-  "description": "IP to ASN using BGP table listings",
+  "description": "IP to ASN using BGP table listings from http://thyme.apnic.net/current/",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
