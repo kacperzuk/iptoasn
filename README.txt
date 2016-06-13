@@ -29,9 +29,9 @@ const iptoasn = require("iptoasn")("cache/");
 // t are days
 // t is Infinity if there's no database at all
 iptoasn.lastUpdated(function(err, t) {
-  // update the database if it's older than 1 day
+  // update the database if it's older than 31 days
   // you must call .load() even if you don't update the database
-  if (t > 1) {
+  if (t > 31) {
     iptoasn.load({ update: true });
   } else {
     iptoasn.load();

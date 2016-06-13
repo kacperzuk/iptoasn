@@ -8,7 +8,7 @@ const iptoasn = require("./index")("cache/");
 iptoasn.lastUpdated(function(err, t) {
   // update the database if it's older than 1 day
   // you must call .load() even if you don't update the database
-  if (t > 1) {
+  if (t > 31) {
     iptoasn.load({ update: true });
   } else {
     iptoasn.load();
