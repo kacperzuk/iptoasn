@@ -126,8 +126,8 @@ class IPtoASN extends EventEmitter {
   load(options) {
     if(!options) options = {};
     fs.open(this.cachedir + "/" + lockFilename, 'a', (err, fd) => {
+      if(err) throw err;
       if(options.update) {
-        if(err) throw err;
         fsext.flock(fd, 'exnb', (err) => {
           if(err) {
             if(err.code == "EAGAIN") {
