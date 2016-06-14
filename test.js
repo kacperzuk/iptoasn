@@ -6,7 +6,7 @@ const iptoasn = require("./index")("cache/");
 // t are days
 // t is Infinity if there's no database at all
 iptoasn.lastUpdated(function(err, t) {
-  // update the database if it's older than 1 day
+  // update the database if it's older than 31 days
   // you must call .load() even if you don't update the database
   if (t > 31) {
     iptoasn.load({ update: true });
@@ -14,6 +14,7 @@ iptoasn.lastUpdated(function(err, t) {
     iptoasn.load();
   }
 })
+
 
 var arr = ['50.21.180.100',
   '50.22.180.100',
@@ -23,6 +24,15 @@ var arr = ['50.21.180.100',
   '127.0.0.1',
   'asd'
 ];
+
+// cache_locked event is emitted if load({ update: true }) is called in
+// parallel (even from or multiple processes)
+iptoasn.on('cache_locked', function() {
+  // assume another process is updating the cache
+  // .load() will wait until cache is updated
+  console.log("cache_locked");
+  iptoasn.load();
+});
 
 // ready event is emitted when the database has been loaded
 iptoasn.on("ready", function() {

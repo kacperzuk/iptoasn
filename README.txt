@@ -23,7 +23,7 @@ accept PR for, however lookup speed is a priority).
 ```javascript
 // you must pass a directory in which database will be saved
 // if it doesn't exist, it will be created
-const iptoasn = require("iptoasn")("cache/");
+const iptoasn = require("./index")("cache/");
 
 // check when the database was updated
 // t are days
@@ -38,6 +38,7 @@ iptoasn.lastUpdated(function(err, t) {
   }
 })
 
+
 var arr = ['50.21.180.100',
   '50.22.180.100',
   '1.38.1.1',
@@ -46,6 +47,15 @@ var arr = ['50.21.180.100',
   '127.0.0.1',
   'asd'
 ];
+
+// cache_locked event is emitted if load({ update: true }) is called in
+// parallel (even from or multiple processes)
+iptoasn.on('cache_locked', function() {
+  // assume another process is updating the cache
+  // .load() will wait until cache is updated
+  console.log("cache_locked");
+  iptoasn.load();
+});
 
 // ready event is emitted when the database has been loaded
 iptoasn.on("ready", function() {

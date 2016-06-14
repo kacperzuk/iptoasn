@@ -7,12 +7,14 @@ const byline = require('byline');
 const fs = require('fs');
 const ip = require('ip');
 const http = require('http');
+const fsext = require('fs-ext');
 
 const bgpTableUrl = "http://thyme.apnic.net/current/data-raw-table";
 const asnNamesUrl = "http://thyme.apnic.net/current/data-used-autnums";
 
 const bgpTableFilename = "bgp-raw-table.txt";
 const asnNamesFilename = "used-autnums.txt";
+const lockFilename = "dbupdate.lock";
 
 const bgpDbFilename = "db.txt";
 
@@ -59,7 +61,7 @@ class IPtoASN extends EventEmitter {
     } catch(e) {}
   }
 
-  _load() {
+  _load(fd) {
     fs.readFile(this.cachedir + "/" + bgpDbFilename, (err, data) => {
       if(err) throw err;
       BGPTable = sorted(JSON.parse(data), (aa,bb) => {
@@ -79,6 +81,7 @@ class IPtoASN extends EventEmitter {
         ASNNames[asn] = { asn, name };
       });
       rstream.on("end", () => {
+        fsext.flock(fd, 'un');
         this.emit("ready");
       });
     });
@@ -122,19 +125,34 @@ class IPtoASN extends EventEmitter {
 
   load(options) {
     if(!options) options = {};
-    if(options.update) {
-      // FIXME: make it parallel instead of sequential. promises maybe?
-      // FIXME: unsafe when run from multiple processes
-      this._update(bgpTableUrl, bgpTableFilename, () => {
-        this._update(asnNamesUrl, asnNamesFilename, () => {
-          this._parseBGPTable(() => {
-            this._load();
+    fs.open(this.cachedir + "/" + lockFilename, 'a', (err, fd) => {
+      if(options.update) {
+        if(err) throw err;
+        fsext.flock(fd, 'exnb', (err) => {
+          if(err) {
+            if(err.code == "EAGAIN") {
+              this.emit('cache_locked');
+              return;
+            } else {
+              throw err;
+            }
+          }
+          // FIXME: make it parallel instead of sequential. promises maybe?
+          this._update(bgpTableUrl, bgpTableFilename, () => {
+            this._update(asnNamesUrl, asnNamesFilename, () => {
+              this._parseBGPTable(() => {
+                this._load(fd);
+              });
+            });
           });
         });
-      });
-    } else {
-      this._load();
-    }
+      } else {
+        fsext.flock(fd, 'sh', (err) => {
+          if(err) throw err;
+          this._load(fd);
+        });
+      }
+    });
   }
 
   lastUpdated(callback) {
