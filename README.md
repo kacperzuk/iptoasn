@@ -23,7 +23,7 @@ accept PR for, however lookup speed is a priority).
 ```javascript
 // you must pass a directory in which database will be saved
 // if it doesn't exist, it will be created
-const iptoasn = require("./index")("cache/");
+const iptoasn = require("iptoasn")("cache/");
 
 // check when the database was updated
 // t are days
