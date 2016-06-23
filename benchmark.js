@@ -1,4 +1,4 @@
-var iptoasn = require("iptoasn")("cache/");
+var iptoasn = require("./index")("cache/");
 var ip = require("ip");
 
 iptoasn.lastUpdated(function(err, t) {
