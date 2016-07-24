@@ -22,6 +22,7 @@ iptoasn.on("ready", function(){
     iptoasn.lookup(addr[i]);
   };
   var end = Date.now();
+
   console.log("Benchmark took: ", (end-start), "ms (avg", Math.ceil((end-start)/addr.length*1000), "us per lookup)");
 });
 

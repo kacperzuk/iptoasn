@@ -21,22 +21,24 @@ const bgpDbFilename = "db.txt";
 let ASNNames = {};
 let BGPTable = sorted();
 
-// FIXME: recursion probably isn't the most efficient solution...
-function _findInSortedRanges(db, ipLong, fromIndex, toIndex) {
+
+function _findInSortedRanges(db, ipLong) {
+  let fromIndex = 0;
+  let toIndex = db.length-1;
   if(fromIndex > toIndex) return null; // not found :(
-
-  let m = parseInt((fromIndex + toIndex) / 2);
-  let a = db.get(m);
-
-  if(a[0] < ipLong && a[1] < ipLong) {
-    return _findInSortedRanges(db, ipLong, m+1, toIndex);
-  } else if(a[0] > ipLong && a[1] > ipLong) {
-    return _findInSortedRanges(db, ipLong, fromIndex, m-1);
-  } else if(a[0] <= ipLong && a[1] >= ipLong) {
-    return a;
+  let m = 0;
+  let a;
+  while (fromIndex <= toIndex){
+    m = parseInt((fromIndex + toIndex) / 2);
+      a = db.get(m);
+    if(a[0] < ipLong && a[1] < ipLong) {
+      fromIndex = m + 1;
+    } else if(a[0] > ipLong && a[1] > ipLong) {
+      toIndex = m - 1;
+    } else if(a[0] <= ipLong && a[1] >= ipLong) {
+      return a;
+    }
   }
-
-  throw new Error("BUG?");
 }
 
 function findInSortedRanges(db, ipv) {
@@ -47,7 +49,7 @@ function findInSortedRanges(db, ipv) {
     iplong = ipv;
   }
 
-  return _findInSortedRanges(db, iplong, 0, db.length-1);
+  return _findInSortedRanges(db, iplong);
 }
 
 class IPtoASN extends EventEmitter {

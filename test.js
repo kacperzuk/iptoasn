@@ -1,6 +1,7 @@
 // you must pass a directory in which database will be saved
 // if it doesn't exist, it will be created
 const iptoasn = require("./index")("cache/");
+var heapdump = require('heapdump');
 
 // check when the database was updated
 // t are days
