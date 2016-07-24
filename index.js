@@ -1,97 +1,36 @@
 "use strict";
 
-const EventEmitter = require('events');
-const util = require('util');
-const sorted = require('sorted');
-const byline = require('byline');
-const fs = require('fs');
-const ip = require('ip');
-const http = require('http');
-const fsext = require('fs-ext');
+let BGPSearch;
+try {
+  BGPSearch = require("./build/Debug/addon").BGPSearch;
+} catch(e) {
+  BGPSearch = require("./build/Release/addon").BGPSearch;
+}
 
-const bgpTableUrl = "http://thyme.apnic.net/current/data-raw-table";
-const asnNamesUrl = "http://thyme.apnic.net/current/data-used-autnums";
+const http = require("http");
+const fs = require("fs");
+const fsext = require("fs-ext");
+const byline = require("byline");
 
-const bgpTableFilename = "bgp-raw-table.txt";
-const asnNamesFilename = "used-autnums.txt";
 const lockFilename = "dbupdate.lock";
-
 const bgpDbFilename = "db.txt";
 
-let ASNNames = {};
-let BGPTable = sorted();
+const asNamesUrl = "http://thyme.apnic.net/current/data-used-autnums";
+const asNamesFilename = "used-autnums.txt";
 
-
-function _findInSortedRanges(db, ipLong) {
-  let fromIndex = 0;
-  let toIndex = db.length-1;
-  if(fromIndex > toIndex) return null; // not found :(
-  let m = 0;
-  let a;
-  while (fromIndex <= toIndex){
-    m = parseInt((fromIndex + toIndex) / 2);
-      a = db.get(m);
-    if(a[0] < ipLong && a[1] < ipLong) {
-      fromIndex = m + 1;
-    } else if(a[0] > ipLong && a[1] > ipLong) {
-      toIndex = m - 1;
-    } else if(a[0] <= ipLong && a[1] >= ipLong) {
-      return a;
-    }
-  }
-}
-
-function findInSortedRanges(db, ipv) {
-  let iplong;
-  if(typeof ipv == "string") {
-    iplong = ip.toLong(ipv);
-  } else {
-    iplong = ipv;
-  }
-
-  return _findInSortedRanges(db, iplong);
-}
-
-class IPtoASN extends EventEmitter {
+class IPtoASN {
   constructor(cachedir) {
-    super();
     this.cachedir = cachedir;
-
-    // FIXME: should be async probably
+    this.bgpsearch = new BGPSearch();
+    this.asnames = {};
     try {
       fs.mkdirSync(cachedir);
     } catch(e) {}
   }
 
-  _load(fd) {
-    fs.readFile(this.cachedir + "/" + bgpDbFilename, (err, data) => {
-      if(err) throw err;
-      BGPTable = sorted(JSON.parse(data), (aa,bb) => {
-        let a = aa[0];
-        let b = bb[0];
-        if (a == b) return 0
-        else if (a > b) return 1
-        else if (a < b) return -1
-        else throw new RangeError('Unstable comparison: ' + a + ' cmp ' + b)
-      });
-
-      let rstream = byline(fs.createReadStream(this.cachedir + "/" + asnNamesFilename));
-      rstream.on("data", (line) => {
-        let tokens = line.toString().trim().split(" ");
-        let asn = tokens.shift();
-        let name = tokens.join(" ");
-        ASNNames[asn] = { asn, name };
-      });
-      rstream.on("end", () => {
-        fsext.flock(fd, 'un');
-        this.emit("ready");
-      });
-    });
-  }
-
-  _update(url, filename, callback) {
-    http.get(url, (response) => {
-      const writeStream = fs.createWriteStream(this.cachedir + "/" + filename);
+  _updateASNames(callback) {
+    http.get(asNamesUrl, (response) => {
+      const writeStream = fs.createWriteStream(this.cachedir + "/" + asNamesFilename);
       response.on("data", (chunk) => writeStream.write(chunk));
       response.on("end", () => {
         writeStream.close();
@@ -101,59 +40,53 @@ class IPtoASN extends EventEmitter {
     });
   }
 
-  _parseBGPTable(callback) {
-    let rstream = byline(fs.createReadStream(this.cachedir + "/" + bgpTableFilename));
-
-    let db = [];
-
-    rstream.on("data", (data) => {
-      let tokens = data.toString().trim().split("\t");
-      let network = ip.cidrSubnet(tokens[0]);
-
-      let start = ip.toLong(network.firstAddress);
-      let end = ip.toLong(network.lastAddress);
-      let asn = tokens[1];
-
-      db.push([start, end, asn]);
-    });
-
-    rstream.on("end", () => {
-      db.sort((a, b) => {
-        return a[0] - b[0];
+  update(source, callback) {
+    fs.open(this.cachedir + "/" + lockFilename, 'a', (err, fd) => {
+      if(err) throw err;
+      fsext.flock(fd, 'exnb', (err) => {
+        if(err) {
+          if(err.code == "EAGAIN") {
+            callback('cache_locked');
+            return;
+          } else {
+            throw err;
+          }
+        }
+        if(!source) source = "thyme.apnic.net";
+        this._updateASNames(() => {
+          require(`./sources/${source}`)(this.cachedir + "/" + bgpDbFilename, () => {
+            fsext.flock(fd, 'un');
+            callback('finished');
+          });
+        });
       });
-      fs.writeFile(this.cachedir + "/" + bgpDbFilename, JSON.stringify(db), callback);
     });
   }
 
-  load(options) {
-    if(!options) options = {};
+  load(callback) {
     fs.open(this.cachedir + "/" + lockFilename, 'a', (err, fd) => {
       if(err) throw err;
-      if(options.update) {
-        fsext.flock(fd, 'exnb', (err) => {
-          if(err) {
-            if(err.code == "EAGAIN") {
-              this.emit('cache_locked');
-              return;
-            } else {
-              throw err;
-            }
-          }
-          // FIXME: make it parallel instead of sequential. promises maybe?
-          this._update(bgpTableUrl, bgpTableFilename, () => {
-            this._update(asnNamesUrl, asnNamesFilename, () => {
-              this._parseBGPTable(() => {
-                this._load(fd);
-              });
-            });
+      fsext.flock(fd, 'sh', (err) => {
+        if(err) throw err;
+
+        const rstream = byline(fs.createReadStream(this.cachedir + "/" + bgpDbFilename));
+        rstream.on('data', (line) => {
+          this.bgpsearch.push(line.toString().trim());
+        });
+        rstream.on('end', () => {
+          const rstream = byline(fs.createReadStream(this.cachedir + "/" + asNamesFilename));
+          rstream.on("data", (line) => {
+            let tokens = line.toString().trim().split(" ");
+            let asn = tokens.shift();
+            let name = tokens.join(" ");
+            this.asnames[asn] = { asn, name };
+          });
+          rstream.on("end", () => {
+            fsext.flock(fd, 'un');
+            callback();
           });
         });
-      } else {
-        fsext.flock(fd, 'sh', (err) => {
-          if(err) throw err;
-          this._load(fd);
-        });
-      }
+      });
     });
   }
 
@@ -166,14 +99,13 @@ class IPtoASN extends EventEmitter {
         let msSinceUpdate = new Date() - new Date(stat.mtime);
         daysSinceUpdate = msSinceUpdate/1000/3600/24.0;
       }
-      callback(null, daysSinceUpdate);
+      callback(daysSinceUpdate);
     });
   }
 
   lookup(ip) {
-    let db = findInSortedRanges(BGPTable, ip);
-    if(!db) return null;
-    return ASNNames[db[2]];
+    let asn = this.bgpsearch.find(ip);
+    return this.asnames[asn];
   }
 }
 
