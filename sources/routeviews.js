@@ -2,23 +2,25 @@
 
 const http = require("http");
 const fs = require("fs");
-const bz2 = require("unbzip2-stream");
 const byline = require("byline");
+const child_process = require("child_process");
 
 const bgpTableUrl = "http://archive.routeviews.org/dnszones/originas.bz2";
 
 module.exports = (dst, callback) => {
+  const bz2 = child_process.spawn("bunzip2");
   http.get(bgpTableUrl, (response) => {
-    const writeStream = fs.createWriteStream(dst);
+    response.pipe(bz2.stdin);
     let prev = null;
-    response.pipe(bz2()).pipe(byline())
+    const writeStream = fs.createWriteStream(dst);
+    bz2.stdout.pipe(byline())
       .on("data", (line) => {
         let tokens = line
-            .toString()
-            .trim()
-            .replace(/\t+/g, " ")
-            .replace(/"/g, "")
-            .split(" ");
+          .toString()
+          .trim()
+          .replace(/\t+/g, " ")
+          .replace(/"/g, "")
+          .split(" ");
         let len = tokens.length;
         let asn = tokens[len-3].trim();
         let network = tokens[len-2].trim();
