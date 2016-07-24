@@ -24,7 +24,7 @@ iptoasn.lastUpdated(function(t) {
   // update the database if it's older than 31 days
   // you must call .load() even if you don't update the database
   if (t > 31) {
-    iptoasn.update("routeviews", () => {
+    iptoasn.update(null, () => {
       iptoasn.load(start);
     });
   } else {
