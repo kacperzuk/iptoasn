@@ -105,7 +105,13 @@ class IPtoASN {
 
   lookup(ip) {
     let asn = this.bgpsearch.find(ip);
-    return this.asnames[asn] || { asn };
+    if(this.asnames[asn]) {
+      return this.asnames[asn];
+    } else if(asn) {
+      return { asn };
+    } else {
+      return null;
+    }
   }
 }
 
