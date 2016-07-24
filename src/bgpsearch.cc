@@ -199,9 +199,19 @@ bool BGPSearch::push(std::string row) {
 }
 
 void BGPSearch::push(uint32_t start, uint32_t end, uint32_t asn) {
-  bgp_ranges_.push_back(start);
-  bgp_ranges_.push_back(end);
-  bgp_ranges_.push_back(asn);
+  uint32_t prev_end = 0;
+  if(bgp_ranges_.size() >= 3) {
+    prev_end = bgp_ranges_[bgp_ranges_.size()-2];
+  }
+
+  if(prev_end < end || prev_end == 0) {
+    if(prev_end > start) {
+      start = prev_end + 1;
+    }
+    bgp_ranges_.push_back(start);
+    bgp_ranges_.push_back(end);
+    bgp_ranges_.push_back(asn);
+  }
 }
 
 bool BGPSearch::find(std::string ip, uint32_t &asn) {
