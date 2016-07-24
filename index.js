@@ -69,17 +69,17 @@ class IPtoASN {
       fsext.flock(fd, 'sh', (err) => {
         if(err) throw err;
 
-        const rstream = byline(fs.createReadStream(this.cachedir + "/" + bgpDbFilename));
-        rstream.on('data', (line) => {
-          this.bgpsearch.push(line.toString().trim());
+        const rstream = byline(fs.createReadStream(this.cachedir + "/" + asNamesFilename));
+        rstream.on("data", (line) => {
+          let tokens = line.toString().trim().split(" ");
+          let asn = tokens.shift();
+          let name = tokens.join(" ");
+          this.asnames[asn] = { asn, name };
         });
         rstream.on('end', () => {
-          const rstream = byline(fs.createReadStream(this.cachedir + "/" + asNamesFilename));
-          rstream.on("data", (line) => {
-            let tokens = line.toString().trim().split(" ");
-            let asn = tokens.shift();
-            let name = tokens.join(" ");
-            this.asnames[asn] = { asn, name };
+          const rstream = byline(fs.createReadStream(this.cachedir + "/" + bgpDbFilename));
+          rstream.on('data', (line) => {
+            this.bgpsearch.push(line.toString().trim());
           });
           rstream.on("end", () => {
             fsext.flock(fd, 'un');
@@ -105,7 +105,7 @@ class IPtoASN {
 
   lookup(ip) {
     let asn = this.bgpsearch.find(ip);
-    return this.asnames[asn];
+    return this.asnames[asn] || { asn };
   }
 }
 
