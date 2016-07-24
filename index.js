@@ -72,7 +72,7 @@ class IPtoASN {
         const rstream = byline(fs.createReadStream(this.cachedir + "/" + asNamesFilename));
         rstream.on("data", (line) => {
           let tokens = line.toString().trim().split(" ");
-          let asn = tokens.shift();
+          let asn = parseInt(tokens.shift());
           let name = tokens.join(" ");
           this.asnames[asn] = { asn, name };
         });
