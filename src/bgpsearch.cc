@@ -2,7 +2,6 @@
 
 #include <sstream>
 #include <limits>
-#include <cassert>
 
 using v8::Context;
 using v8::Function;
@@ -200,10 +199,10 @@ bool BGPSearch::push(std::string row) {
 }
 
 void BGPSearch::push(uint32_t start, uint32_t end, uint8_t netmask, uint32_t asn) {
-  assert(netmask <= 32);
+  if(netmask > 32) return;
   if(bgp_ranges_[netmask].size() >= 3) {
     std::vector<uint32_t>::reverse_iterator rit = bgp_ranges_[netmask].rbegin();
-    assert(start > *(rit+3));
+    if(start < *(rit+3)) return;
   }
   bgp_ranges_[netmask].push_back(start);
   bgp_ranges_[netmask].push_back(end);
