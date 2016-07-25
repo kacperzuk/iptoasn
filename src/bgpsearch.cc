@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <limits>
+#include <cassert>
 
 using v8::Context;
 using v8::Function;
@@ -21,7 +22,7 @@ Persistent<Function> BGPSearch::constructor;
 
 
 BGPSearch::BGPSearch() {
-  //bgp_ranges_.reserve(3 * 594503 * 1.1);
+  bgp_ranges_.resize(33);
 }
 
 BGPSearch::~BGPSearch() {
@@ -193,25 +194,20 @@ bool BGPSearch::push(std::string row) {
   }
 
   networkToRange(network, netmask, start, end);
-  push(start, end, asn);
+  push(start, end, netmask, asn);
 
   return true;
 }
 
-void BGPSearch::push(uint32_t start, uint32_t end, uint32_t asn) {
-  uint32_t prev_end = 0;
-  if(bgp_ranges_.size() >= 3) {
-    prev_end = bgp_ranges_[bgp_ranges_.size()-2];
+void BGPSearch::push(uint32_t start, uint32_t end, uint8_t netmask, uint32_t asn) {
+  assert(netmask <= 32);
+  if(bgp_ranges_[netmask].size() >= 3) {
+    std::vector<uint32_t>::reverse_iterator rit = bgp_ranges_[netmask].rbegin();
+    assert(start > *(rit+3));
   }
-
-  if(prev_end < end || prev_end == 0) {
-    if(prev_end > start) {
-      start = prev_end + 1;
-    }
-    bgp_ranges_.push_back(start);
-    bgp_ranges_.push_back(end);
-    bgp_ranges_.push_back(asn);
-  }
+  bgp_ranges_[netmask].push_back(start);
+  bgp_ranges_[netmask].push_back(end);
+  bgp_ranges_[netmask].push_back(asn);
 }
 
 bool BGPSearch::find(std::string ip, uint32_t &asn) {
@@ -223,10 +219,20 @@ bool BGPSearch::find(std::string ip, uint32_t &asn) {
 }
 
 bool BGPSearch::find(uint32_t ip, uint32_t &asn) {
-  if(bgp_ranges_.size() <= 0) return false;
+  // crappy attempt at longest-prefix first matching
+  for(uint8_t i = 33; i > 0; i--) {
+    if(find(ip, i-1, asn)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool BGPSearch::find(uint32_t ip, uint8_t netmask, uint32_t &asn) {
+  if(bgp_ranges_[netmask].size() <= 0) return false;
 
   size_t fromIndex = 0;
-  size_t toIndex = bgp_ranges_.size()/3 - 1;
+  size_t toIndex = bgp_ranges_[netmask].size()/3 - 1;
 
   size_t middleIndex = 0;
   uint32_t start, end;
@@ -234,16 +240,16 @@ bool BGPSearch::find(uint32_t ip, uint32_t &asn) {
   while(fromIndex <= toIndex) {
     middleIndex = fromIndex + ((toIndex - fromIndex) / 2);
 
-    start = bgp_ranges_[middleIndex*3];
-    end = bgp_ranges_[middleIndex*3 + 1];
+    start = bgp_ranges_[netmask][middleIndex*3];
+    end = bgp_ranges_[netmask][middleIndex*3 + 1];
 
     if(ip > start && ip > end) {
       fromIndex = middleIndex + 1;
     } else if(ip < start && ip < end) {
-      if(toIndex == 0) break;
+      if(middleIndex == 0) break;
       toIndex = middleIndex - 1;
     } else if(ip >= start && ip <= end) {
-      asn = bgp_ranges_[middleIndex*3 + 2];
+      asn = bgp_ranges_[netmask][middleIndex*3 + 2];
       return true;
     }
   }
