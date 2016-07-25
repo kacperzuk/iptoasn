@@ -199,10 +199,16 @@ bool BGPSearch::push(std::string row) {
 }
 
 void BGPSearch::push(uint32_t start, uint32_t end, uint8_t netmask, uint32_t asn) {
-  if(netmask > 32) return;
+  assert(netmask <= 32);
   if(bgp_ranges_[netmask].size() >= 3) {
     std::vector<uint32_t>::reverse_iterator rit = bgp_ranges_[netmask].rbegin();
-    if(start < *(rit+3)) return;
+    uint32_t prev_start = *(rit+2);
+    uint32_t prev_end = *(rit+1);
+    if(start == prev_start && end == prev_end) {
+      return;
+    }
+
+    assert(start > prev_end);
   }
   bgp_ranges_[netmask].push_back(start);
   bgp_ranges_[netmask].push_back(end);
