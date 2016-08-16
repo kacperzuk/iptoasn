@@ -4,6 +4,7 @@ let BGPSearch;
 try {
   BGPSearch = require("./build/Debug/addon").BGPSearch;
 } catch(e) {
+  console.log(e);
   BGPSearch = require("./build/Release/addon").BGPSearch;
 }
 
@@ -15,7 +16,7 @@ const byline = require("byline");
 const lockFilename = "dbupdate.lock";
 const bgpDbFilename = "db.txt";
 
-const asNamesUrl = "http://thyme.apnic.net/current/data-used-autnums";
+const asnNamesUrl = "http://www.cidr-report.org/as2.0/autnums.html";
 const asNamesFilename = "used-autnums.txt";
 
 class IPtoASN {
@@ -27,15 +28,25 @@ class IPtoASN {
       fs.mkdirSync(cachedir);
     } catch(e) {}
   }
-
   _updateASNames(callback) {
-    http.get(asNamesUrl, (response) => {
+    http.get(asnNamesUrl, (response) => {
+      response = byline(response);
       const writeStream = fs.createWriteStream(this.cachedir + "/" + asNamesFilename);
-      response.on("data", (chunk) => writeStream.write(chunk));
+      response.on("data", (line) => {
+        let token = line.toString();
+        let match = token.match(/<a href="[^"]+">AS(\d+)\s*<\/a> (.*)/);
+        if (match){
+          let asn = match[1];
+          let name = match[2];
+          let chunk = asn+" "+name+"\n";
+          writeStream.write(chunk);
+        }
+      });
       response.on("end", () => {
         writeStream.close();
-        if(callback)
+        if(callback){
           callback();
+        }
       });
     });
   }
@@ -88,7 +99,7 @@ class IPtoASN {
         });
       });
     });
-  }
+}
 
   lastUpdated(callback) {
     fs.stat(this.cachedir + "/" + bgpDbFilename, (err, stat) => {
