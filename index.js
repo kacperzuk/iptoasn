@@ -4,7 +4,6 @@ let BGPSearch;
 try {
   BGPSearch = require("./build/Debug/addon").BGPSearch;
 } catch(e) {
-  console.log(e);
   BGPSearch = require("./build/Release/addon").BGPSearch;
 }
 
