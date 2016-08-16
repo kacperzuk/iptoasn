@@ -11,7 +11,7 @@ module.exports = (dst, callback) => {
     const writeStream = fs.createWriteStream(dst);
     response.pipe(replace(/\t+/g, " "))
         .pipe(writeStream)
-        .on("end", () => {
+        .on("finish", () => {
           writeStream.close();
           callback('finished');
         });
