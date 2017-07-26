@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <limits>
+#include <errno.h>
 
 using v8::Context;
 using v8::Function;
