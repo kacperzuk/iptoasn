@@ -3,7 +3,9 @@
 var iptoasn = require("./index")("cache/");
 var ip = require("ip");
 
+var loadstart = Date.now();
 iptoasn.load(() => {
+  console.log("Load took: ", Date.now()-loadstart, "ms");
   var addr = new Array(1000*1000);
   var d = ip.toLong("255.255.255.255")/addr.length;
   for (var i = 0; i < addr.length; i++) {
